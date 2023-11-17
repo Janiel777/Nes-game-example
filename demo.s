@@ -65,6 +65,11 @@ jsr LoadAttr
 
 jsr LoadBackground1
 
+;-----------;
+  ldx #$0000;
+  stx $2003 ;This is where the 64 sprites will be stored.
+;-----------;
+
 
 ;PPUCTRL
 ; 7  bit  0
@@ -128,12 +133,9 @@ nmi:
   PHA   ;       
   ;-----;
 
-  ;-----------;
-  ldx #$0000  ;
-  stx $2003   ;This is where the 64 sprites will be stored.
-  ;-----------;
   
   jsr readController1
+
   jsr loadMiddleSprite
   jsr checkLeftButtonPressed
   jsr checkRightButtonPressed
@@ -144,15 +146,26 @@ nmi:
   jsr checkAButtonPressed 
   jsr checkBButtonPressed 
   jsr checkNotMovingPressed
+
+
   jsr checkAndFixMirroring
-  jsr gravityEffect
   
-  ; jsr loadPlayerSprites
 
-  jsr calculatePlayerIndexs
-  jsr checkCollision
+  jsr checkGrounded1
 
-  jsr restoreFromDamage
+  lda JUMPING
+  cmp #1
+  beq @continue
+  jsr gravityEffect
+  @continue:
+
+  jsr jumpingManager
+
+
+  ;-----------;
+  ldx #$02    ;
+  stx $4014   ;
+  ;-----------;
 
   
 
@@ -224,9 +237,20 @@ nmi:
     lda INPUT1                              ;
     and #%00001000                       ;
     beq @else                            ;
+
+    lda GROUNDED
+    cmp #$1
+    bne @continue
+    sta JUMPING
+    @continue:
+
     jsr loadUpPressedSprite              ;  <--- if pressed
     jmp endCheckUpButtonPressed          ;
   @else:                                 ;
+
+    ; lda #$0
+    ; sta JUMPING
+
     jsr loadUpSprite                     ;  <--- if not
   endCheckUpButtonPressed:               ;
     rts                                  ;
@@ -234,20 +258,29 @@ nmi:
 
 ;-----------check down button------------;
   checkDownButtonPressed:                ;
-    lda INPUT1                              ;
+    lda INPUT1                           ;
     and #%00000100                       ;
     beq @else                            ;
+
+    lda #$0
+    sta JUMPING
+    sta JUMPING_COUNTER
+
+    jsr moveDownPlayer1
+    jsr moveDownPlayer1
+    
     jsr loadDownPressedSprite            ;  <--- if pressed
     jmp endCheckDownButtonPressed        ;
   @else:                                 ;
     jsr loadDownSprite                   ;  <--- if not
+
   endCheckDownButtonPressed:             ;
     rts                                  ;
 ;----------------------------------------;
 
 ;-----------check select button----------;
   checkSelectButtonPressed:              ;
-    lda INPUT1                              ;
+    lda INPUT1                           ;
     and #%00100000                       ;
     beq @else                            ; 
     jsr loadSelectPressedSprite          ;  <--- if pressed
@@ -276,8 +309,6 @@ nmi:
     lda INPUT1                             ;
     and #%01000000                       ;
     beq @else                            ;
-
-    jsr takeDamage
     jsr loadAPressedSprite               ;  <--- if pressed
     jmp endCheckAButtonPressed           ;
   @else:                                 ;
@@ -304,13 +335,19 @@ nmi:
     lda INPUT1                           ;
     and #%00000011                       ;
     bne @else                            ;
+
+      lda GROUNDED
+      cmp #$1
+      bne @continue
       jsr loadStillFrame                 ;  <--- if not moving
+      @continue:
     jmp endcheckNotMovingPressed         ;
   @else:                                 ;
                                          ;  <--- if moving
   endcheckNotMovingPressed:              ;
     rts                                  ;
 ;----------------------------------------;
+
   
 
 ;--Load attribute table---------;
@@ -422,81 +459,7 @@ initializePlayer1Sprites:              ;
 ;--------------------------------------;
 
 
-
-; PLAYER1_INDEX_X = $0008
-; PLAYER1_INDEX_Y = $0009
-
-; 24 y
-; 25
-; 26
-; 27 x
-
-; 28 y
-; 29
-; 2A
-; 2B x
-
-; 2C y
-; 2D
-; 2E
-; 2F x
-
-; 30 y
-; 31
-; 32
-; 33 x
-calculatePlayerIndexs:
-  lda $0227
-  cmp $022B
-  bmi @continue1
-    lda $022B
-  @continue1:
-  sta NUM1
-  lda #$8
-  sta NUM2
-  jsr division
-  lda NUM1
-  sta PLAYER1_INDEX_X
-
-
-  lda $0224
-  cmp $0228
-  bmi @continue2
-    lda $0228
-  @continue2:
-  sta NUM1
-  lda #$8
-  sta NUM2
-  jsr division
-  lda NUM1
-  sta PLAYER1_INDEX_Y
-  rts
-
-checkCollision:
-  lda PLAYER1_INDEX_Y
-  asl
-  asl
-  asl
-  asl
-  asl
-  clc
-  adc PLAYER1_INDEX_X
-  tax
-  sta $0016
-  lda background, x
-  cmp #$02
-  beq collision
-    lda #$0
-    sta $0015
-    jmp endCheckCollision
-  collision:
-    lda #01
-    sta $0015
-  endCheckCollision:
-  rts
-
-
-
+;-----------------------------------------------
 ;Antes de llamar la subrutina, cargen los valores en las direcciones: NUM1 = DIVIDENDO, NUM2 = DIVISOR
 ;Despues de llamar la rutina, el cociente estara en la direccion NUM1 y el residuo en el acumulador.
 division:
@@ -513,164 +476,365 @@ L2:
   DEX
   BNE L1
 rts
+;-----------------------------------------------
 
-;-------------------;
-gravityEffect:      ;
-                    ;
-  clc               ;
-  lda $0224         ;
-  adc #GRAVITY      ;
-  sta $0224         ;
-                    ;
-  clc               ;
-  lda $0228         ;
-  adc #GRAVITY      ;
-  sta $0228         ;
-  clc               ;
-  lda $022C         ;
-  adc #GRAVITY      ;
-  sta $022C         ;
-  clc               ;
-  lda $0230         ;
-  adc #GRAVITY      ;
-  sta $0230         ;
-                    ;
-  rts               ; 
-;-------------------;
+;-----------------------------------------------
+; Subrutina de Multiplicación en el 6502
+; Multiplica dos números de 1 byte: NUM1 y NUM2
+; Guarda el resultado en RESULT_HI y RESULT_LOW
+MULTIPLY:
+  ldx #0      ; Inicializa X a 0 (contador para las sumas)
+  lda #0      ; Inicializa A a 0 (acumulador para el resultado bajo)
+  sta RESULT_LOW
+  lda #0      ; Inicializa A a 0 (acumulador para el resultado alto)
+  sta RESULT_HI
+
+  ldy NUM1    ; Carga Y con el primer número (NUM1)
+
+LOOP:
+  cpy #0      ; Comprueba si Y es 0
+  beq DONE    ; Si es 0, termina
+
+  lda RESULT_LOW   ; Suma NUM2 a RESULT_LOW
+  clc
+  adc NUM2
+  sta RESULT_LOW
+
+  lda RESULT_HI   ; Añade el carry a RESULT_HI
+  adc #0
+  sta RESULT_HI
+
+  dey         ; Decrementa Y
+  bne LOOP    ; Si Y no es 0, repite el bucle
+
+DONE:
+  rts         ; Retorna de la subrutina
+;-----------------------------------------------
 
 
 
 
-; 24 y
-; 25
-; 26
-; 27 x
 
-; 28 y
-; 29
-; 2A
-; 2B x
 
-; 2C y
-; 2D
-; 2E
-; 2F x
+;-----------------------------------------------
+;x/64 + (y/8*4) byte index in collisionMap
+;x/8 and %0111
+checkCollide:
+  txa      ; x/64
+  lsr
+  lsr
+  lsr
+  lsr
+  lsr
+  lsr
+  sta TEMP
+  TYA       ;(y/8)
+  lsr
+  lsr
+  lsr
+  asl   
+  asl        ;*4
+  clc
+  adc TEMP
+  TAY       ;byte index
 
-; 30 y
-; 31
-; 32
-; 33 x
-takeDamage:
-  
-    lda #$00
-    ; sta $0224
-    sta $0225
-    sta $0226
-    ; sta $0227
+  txa
+  lsr
+  lsr
+  lsr
+  and #%0111
+  tax
 
-    ; sta $0228
-    sta $0229
-    sta $022A
-    ; sta $022B
-
-    ; sta $022C
-    sta $022D
-    sta $022E
-    ; sta $022F
-
-    ; sta $0230
-    sta $0231
-    sta $0232
-    ; sta $0233
-endTakeDamage:
-  lda #$01
-  sta takeDamage
+  lda collisionMap, Y
+  and bitMaskTable, x
   rts
+;-----------------------------------------------
 
+;----------------------l
+setCoordinatesBottomLeft:
+  lda $0224 ;set y
+  clc
+  adc #$8
+  tay
 
+  lda $0227 ;set x
+  cmp $022B
+  bpl @continue 
+  lda $022B ;set x
+@continue:
+  tax
+  rts
+;----------------------
 
+;----------------------l
+setCoordinatesBottomRight:
+  lda $0224 ;set y
+  clc
+  adc #$8
+  tay
 
-restoreFromDamage:
-  lda takeDamage
-  cmp #$01
-  beq @SUM
-  jmp @continue
+  lda $0227 ;set x
+  cmp $022B
+  bpl @continue 
+  lda $022B ;set x
+@continue:
+  clc 
+  adc #$7
+  tax
+  rts
+;----------------------
 
-  @SUM:
+;----------------------l
+setCoordinatesTopLeft:
+  lda $0224 ;set y
+  clc
+  adc #$1
+  tay
 
-    lda TIMER
-    clc
-    adc #$01
-    cmp #$030
-    beq @restore
-    JMP endRestoreFromDamage
+  lda $0227 ;set x
+  cmp $022B
+  bpl @continue 
+  lda $022B ;set x
+@continue:
+  tax
+  rts
+;----------------------
 
-  @continue:
-    LDA #$02
-    STA $4014
-    jmp endRestoreFromDamage
+;----------------------l
+setCoordinatesTopRight:
+  lda $0224 ;set y
+  clc
+  adc #$1
+  tay
 
-    @restore:
-      lda #$00
-      sta TIMER
-      sta takeDamage
-
-endRestoreFromDamage:
-rts
+  lda $0227 ;set x
+  cmp $022B
+  bpl @continue 
+  lda $022B ;set x
+@continue:
+  clc 
+  adc #$7
+  tax
+  rts
+;----------------------
 
 ;Moves to the left the 4 tiles saved in RAM by 1 pixels.
 ;---------------------;
 moveToLeftPlayer1:    ;
-  clc                 ;
-  lda $0227           ;
-  sbc #$0001          ;
-  sta $0227           ;
+  dec $0227           ; 
+  dec $022B           ;
+  dec $022F           ;
+  dec $0233           ;
+
+  jsr setCoordinatesTopLeft
+  jsr checkCollide
+  beq @continue1
+  inc $0227           ; 
+  inc $022B           ;
+  inc $022F           ;
+  inc $0233           ;
+  @continue1:
+
+  jsr setCoordinatesBottomLeft
+  jsr checkCollide
+  beq @continue2
+  inc $0227           ; 
+  inc $022B           ;
+  inc $022F           ;
+  inc $0233           ;
+  @continue2:
                       ;
-  clc                 ; 
-  lda $022B           ;
-  sbc #$0001          ;
-  sta $022B           ;
-                      ;
-  clc                 ;
-  lda $022F           ;
-  sbc #$0001          ;
-  sta $022F           ;
-                      ;
-  clc                 ;
-  lda $0233           ;
-  sbc #$0001          ;
-  sta $0233           ;
-                      ;
-  rts                 ;
+endMoveToLeftPlayer1:
+  rts
 ;---------------------;
+
+
 
 
 ;Moves to the right the 4 tiles saved in RAM by 2 pixels.
 ;---------------------;
 moveToRightPlayer1:   ;
-  clc                 ;
-  lda $0227           ;
-  adc #$0002          ;
-  sta $0227           ;
-                      ;
-  clc                 ;
-  lda $022B           ;
-  adc #$0002          ;
-  sta $022B           ;
-                      ;
-  clc                 ;
-  lda $022F           ;
-  adc #$0002          ;
-  sta $022F           ;
-                      ;
-  clc                 ;
-  lda $0233           ;
-  adc #$0002          ;
-  sta $0233           ;
-                      ;
+  inc $0227           ;
+  inc $022B           ;
+  inc $022F           ;
+  inc $0233           ;
+
+  jsr setCoordinatesBottomRight
+  jsr checkCollide
+  beq @continue1
+  dec $0227           ;
+  dec $022B           ;
+  dec $022F           ;
+  dec $0233           ;
+  @continue1:
+
+  jsr setCoordinatesBottomRight
+  jsr checkCollide
+  beq @continue2
+  dec $0227           ;
+  dec $022B           ;
+  dec $022F           ;
+  dec $0233           ;
+  @continue2:
+endMoveToRightPlayer1:
   rts                 ;
 ;---------------------;
 
+
+
+;Moves up the 4 tiles saved in RAM by 2 pixels.
+;---------------------;
+moveUpPlayer1:        ;
+  dec $0224           ;
+  dec $0228           ;
+  dec $022c           ;
+  dec $0230           ;
+
+  jsr setCoordinatesTopLeft
+  jsr checkCollide
+  beq @continue1
+  inc $0224           ;
+  inc $0228           ;
+  inc $022c           ;
+  inc $0230           ;
+  @continue1:
+
+  jsr setCoordinatesTopRight
+  jsr checkCollide
+  beq @continue2
+  inc $0224           ;
+  inc $0228           ;
+  inc $022c           ;
+  inc $0230           ;
+  @continue2:
+  
+
+endMoveUpPlayer1:
+  rts                 ;
+;---------------------;
+
+;Moves down the 4 tiles saved in RAM by 2 pixels.
+;---------------------;
+moveDownPlayer1:      ;
+  inc $0224           ;
+  inc $0228           ;
+  inc $022C           ;
+  inc $0230           ;
+
+  ; ldx #$01
+  ; stx JUMPING
+
+  jsr setCoordinatesBottomLeft
+  jsr checkCollide
+  beq @continue1
+  dec $0224           ;
+  dec $0228           ;
+  dec $022C           ;
+  dec $0230           ;
+  ; ldx #$00
+  ; stx JUMPING
+  @continue1:
+
+  jsr setCoordinatesBottomRight
+  jsr checkCollide
+  beq @continue2
+  dec $0224           ;
+  dec $0228           ;
+  dec $022C           ;
+  dec $0230           ;
+  ; ldx #$00
+  ; stx JUMPING
+  @continue2:
+
+endMoveDownPlayer1:
+  rts                 ;
+;---------------------;
+
+
+;Moves down the 4 tiles saved in RAM by 2 pixels.
+;---------------------;
+checkGrounded1:      ;
+  inc $0224           ;
+  inc $0228           ;
+  inc $022C           ;
+  inc $0230           ;
+
+  ldx #$00
+  stx GROUNDED
+
+  jsr setCoordinatesBottomLeft
+  jsr checkCollide
+  beq @continue1
+  ldx #$01
+  stx GROUNDED
+  @continue1:
+
+  jsr setCoordinatesBottomRight
+  jsr checkCollide
+  beq @continue2
+  ldx #$01
+  stx GROUNDED
+  @continue2:
+
+  dec $0224           ;
+  dec $0228           ;
+  dec $022C           ;
+  dec $0230           ;
+
+  lda GROUNDED
+  cmp #$0
+  bne endcheckJunping1
+  jsr loadinAirFrame
+
+endcheckJunping1:
+  rts                 ;
+;---------------------;
+
+
+gravityEffect:
+ jsr moveDownPlayer1
+ jsr moveDownPlayer1
+rts
+
+jumpingManager:
+;   lda JUMPING
+;   cmp #$1
+;   bne @continue1
+
+;     lda JUMPING_COUNTER
+;     cmp #JUNPING_TIME
+;     beq @continue3
+;     inc JUMPING_COUNTER
+;     jmp endJumpingManager
+;     @continue3:
+;     jsr moveDownPlayer1
+;     jsr moveDownPlayer1
+;     jsr moveDownPlayer1
+;     jsr moveDownPlayer1
+;     jmp endJumpingManager
+
+; @continue1:
+;   lda #$00
+;   sta JUMPING_COUNTER
+
+  lda JUMPING
+  cmp #$0
+  beq @continue
+    jsr moveUpPlayer1
+    jsr moveUpPlayer1
+    jsr moveUpPlayer1
+    inc JUMPING_COUNTER
+    lda JUMPING_COUNTER
+    cmp #JUNPING_TIME
+    bne @continue
+    lda #$0
+    sta JUMPING
+    sta JUMPING_COUNTER
+  @continue:
+
+
+endJumpingManager:
+rts
 
 ;----------------------------------;
 loadStillFrame:                    ;
@@ -722,6 +886,56 @@ loadStillRight:                    ;
 ;----------------------------------;
 
 
+
+;----------------------------------;
+loadinAirFrame:                    ;
+  lda DIRECTION1                   ;
+  and #%00000001                   ; 
+  bne @else                        ;
+    jsr loadinAirRight             ;If islooking to the left
+    jmp endLoadinAirFrame          ;
+  @else:                           ;
+    jsr loadinAirLeft              ;If islooking to the right
+endLoadinAirFrame:                 ;
+  rts                              ;
+                                   ;
+loadinAirLeft:                     ;
+  ldx #$00                         ;
+  ldy #$00                         ;
+  @loop:                           ;
+    lda inAirLeft, x               ;
+    sta $0225, y                   ;
+    iny                            ;
+    inx                            ;
+    lda inAirLeft, x               ;
+    sta $0225, y                   ;
+    inx                            ;
+    iny                            ;
+    iny                            ;
+    iny                            ;
+    cpx #$08                       ;
+    bne @loop                      ;
+  rts                              ;
+                                   ;
+loadinAirRight:                    ;
+  ldx #$00                         ;
+  ldy #$00                         ;
+  @loop:                           ;
+    lda inAirRight, x              ;
+    sta $0225, y                   ;
+    iny                            ;
+    inx                            ;
+    lda inAirRight, x              ;
+    sta $0225, y                   ;
+    inx                            ;
+    iny                            ;
+    iny                            ;
+    iny                            ;
+    cpx #$08                       ;
+    bne @loop                      ;
+  rts                              ;
+;----------------------------------;
+
 ;Load the animation of walking to the left
 ;-----------------------------------;
 loadLeftAnimation:                  ;
@@ -761,6 +975,7 @@ endLoadLeftAnimation:               ;
     sta COUNTER_FRAME1              ;
                                     ;
     lda INDEX_FRAME1                ;
+    clc
     adc #$01                        ;
     cmp #$04                        ;
     bne @else2                      ;
@@ -883,6 +1098,7 @@ endLoadRightAnimation:              ;
     sta COUNTER_FRAME1              ;
                                     ;
     lda INDEX_FRAME1                ;
+    clc
     adc #$01                        ;
     cmp #$04                        ;
     bne @else2                      ;
@@ -1282,6 +1498,19 @@ rightFrame4:
   .byte $15, $04
 
 
+inAirRight:
+  .byte $0A, $04 
+  .byte $0B, $04
+  .byte $1A, $04
+  .byte $1B, $04
+
+inAirLeft:
+  .byte $0A, $40
+  .byte $0B, $40
+  .byte $1A, $40
+  .byte $1B, $40
+
+
 
 controlX = $16
 controlY = $D0
@@ -1376,6 +1605,7 @@ background:
 	.byte $15,$15,$15,$15,$15,$15,$15,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $15,$15,$15,$15,$15,$15,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $15,$15,$15,$15,$15,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
+
 	.byte $15,$15,$15,$15,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $15,$15,$15,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $15,$15,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
@@ -1384,6 +1614,7 @@ background:
 	.byte $02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$09,$01,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$01,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$01,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
+
 	.byte $02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $02,$02,$06,$07,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
@@ -1392,13 +1623,57 @@ background:
 	.byte $02,$02,$05,$01,$0c,$0d,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $02,$02,$05,$01,$0a,$0b,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
 	.byte $02,$02,$05,$01,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02,$02
+
 	.byte $03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04,$03,$04
 	.byte $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
 	.byte $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
 	.byte $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$14,$11,$13,$01,$01,$01
 	.byte $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
 	.byte $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+
+ 
+collisionMap:
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00111111, %11111110, %00000001
+  .byte %10000000, %00111111, %11111110, %00000001
+  .byte %10000000, %00111111, %11111110, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %10000000, %00000000, %00000000, %00000001
+  .byte %11111111, %11111111, %11111111, %11111111
+  .byte %11111111, %11111111, %11111111, %11111111
+  .byte %11111111, %11111111, %11111111, %11111111
+  .byte %11111111, %11111111, %11111111, %11111111
+  .byte %11111111, %11111111, %11111111, %11111111
+  .byte %11111111, %11111111, %11111111, %11111111
+  .byte %11111111, %11111111, %11111111, %11111111
+
   
+bitMaskTable:
+  .byte %10000000
+  .byte %01000000
+  .byte %00100000
+  .byte %00010000
+  .byte %00001000
+  .byte %00000100
+  .byte %00000010
+  .byte %00000001
                                             
 background_tiles:                           
 .segment "CHARS"                            
