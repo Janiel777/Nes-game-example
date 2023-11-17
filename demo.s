@@ -132,7 +132,7 @@ nmi:
   TYA   ;                                                         
   PHA   ;       
   ;-----;
-
+  jsr calculatePlayerCoordinates
   
   jsr readController1
 
@@ -143,7 +143,7 @@ nmi:
   jsr checkDownButtonPressed
   jsr checkSelectButtonPressed 
   jsr checkStartButtonPressed
-  jsr checkAButtonPressed 
+  
   jsr checkBButtonPressed 
   jsr checkNotMovingPressed
 
@@ -161,6 +161,11 @@ nmi:
 
   jsr jumpingManager
 
+  jsr checkAButtonPressed 
+
+  jsr projectileManager
+
+  jsr blinkPlayer1
 
   ;-----------;
   ldx #$02    ;
@@ -309,6 +314,8 @@ nmi:
     lda INPUT1                             ;
     and #%01000000                       ;
     beq @else                            ;
+    jsr loadAtack
+    jsr initializeProjectile
     jsr loadAPressedSprite               ;  <--- if pressed
     jmp endCheckAButtonPressed           ;
   @else:                                 ;
@@ -322,6 +329,8 @@ nmi:
     lda INPUT1                             ;
     and #%10000000                       ;
     beq @else                            ;
+    lda #$1
+    sta TAKE_DAMEGE1
     jsr loadBPressedSprite               ;  <--- if pressed
     jmp endCheckBButtonPressed           ;
   @else:                                 ;
@@ -459,6 +468,96 @@ initializePlayer1Sprites:              ;
 ;--------------------------------------;
 
 
+; 0234 y
+; 0235 tile indx
+; 0236 attr
+; 0237 x
+initializeProjectile:
+
+  lda PROJECTILE
+  cmp #1
+  beq endInitializeProjectile
+
+    lda #$1
+    sta PROJECTILE
+
+    lda DIRECTION1
+    sta PROJECTILE_DIRECTION
+
+    lda PLAYER1_Y
+    sta $0234 ; Y
+
+    lda #$33
+    sta $0235 ; tile
+
+    lda #$04
+    sta $0236 ; attr
+
+    lda PROJECTILE_DIRECTION ; x
+    cmp #$0
+    beq @continue
+      lda PLAYER1_X
+      clc
+      sbc #$10
+      sta $0237
+      jmp endInitializeProjectile
+    @continue:
+    lda PLAYER1_X
+    clc
+    adc #$8
+    sta $0237
+
+endInitializeProjectile:
+rts
+
+destroyProjectile:
+  lda #$0
+  sta PROJECTILE
+  sta PROJECTILE_COUNTER
+
+  lda #$0
+  sta $0234
+
+  lda #$0
+  sta $0235
+
+  lda #$04
+  sta $0236
+
+  lda #$0
+  sta $0237
+
+
+endDestroyProjectile:
+rts
+
+projectileManager:
+  lda PROJECTILE
+  cmp #0
+  beq @continue1
+    inc PROJECTILE_COUNTER
+    lda PROJECTILE_COUNTER
+    cmp #PROJECTILE_TIME
+    bne @continue2
+      jsr destroyProjectile
+    @continue2:
+    lda PROJECTILE_DIRECTION
+    cmp #$0
+    beq @continue3
+      dec $0237
+      dec $0237
+      dec $0237
+      jmp @continue1
+    @continue3:
+    inc $0237
+    inc $0237
+    inc $0237
+
+  @continue1:
+
+endProjectileManager:
+rts
+
 ;-----------------------------------------------
 ;Antes de llamar la subrutina, cargen los valores en las direcciones: NUM1 = DIVIDENDO, NUM2 = DIVISOR
 ;Despues de llamar la rutina, el cociente estara en la direccion NUM1 y el residuo en el acumulador.
@@ -549,6 +648,18 @@ checkCollide:
   and bitMaskTable, x
   rts
 ;-----------------------------------------------
+
+calculatePlayerCoordinates:
+  lda $0227 ;set x
+  cmp $022B
+  bpl @continue 
+  lda $022B ;set x
+  @continue:
+  sta PLAYER1_X
+
+  lda $0224 ;set y
+  sta PLAYER1_Y
+  rts
 
 ;----------------------l
 setCoordinatesBottomLeft:
@@ -791,32 +902,16 @@ endcheckJunping1:
 ;---------------------;
 
 
+
+;---------------------;
 gravityEffect:
  jsr moveDownPlayer1
  jsr moveDownPlayer1
 rts
+;---------------------;
 
+;---------------------;
 jumpingManager:
-;   lda JUMPING
-;   cmp #$1
-;   bne @continue1
-
-;     lda JUMPING_COUNTER
-;     cmp #JUNPING_TIME
-;     beq @continue3
-;     inc JUMPING_COUNTER
-;     jmp endJumpingManager
-;     @continue3:
-;     jsr moveDownPlayer1
-;     jsr moveDownPlayer1
-;     jsr moveDownPlayer1
-;     jsr moveDownPlayer1
-;     jmp endJumpingManager
-
-; @continue1:
-;   lda #$00
-;   sta JUMPING_COUNTER
-
   lda JUMPING
   cmp #$0
   beq @continue
@@ -835,6 +930,46 @@ jumpingManager:
 
 endJumpingManager:
 rts
+;---------------------;
+
+
+blinkPlayer1:
+  lda TAKE_DAMEGE1
+  cmp #$0
+  beq endBlinkPlayer1
+
+  inc BLINK_PLAYER_COUNTER
+  inc BLINK_PLAYER_TIMER
+  lda BLINK_PLAYER_COUNTER
+  cmp #$8
+  bmi @invisible
+    cmp #$10
+    beq @reset 
+      jmp @continue
+    @reset: 
+    lda #$0
+    sta BLINK_PLAYER_COUNTER
+    jmp @continue
+  @invisible:
+  lda #$0
+  sta $0225
+  sta $0229
+  sta $022D
+  sta $0231
+  @continue:
+
+  lda BLINK_PLAYER_TIMER
+  cmp #$50
+  bne endBlinkPlayer1
+    lda #$0
+    sta TAKE_DAMEGE1
+    sta BLINK_PLAYER_COUNTER
+    sta BLINK_PLAYER_TIMER
+
+endBlinkPlayer1:
+rts
+
+
 
 ;----------------------------------;
 loadStillFrame:                    ;
@@ -886,6 +1021,55 @@ loadStillRight:                    ;
 ;----------------------------------;
 
 
+
+;----------------------------------;
+loadAtack:                         ;
+  lda DIRECTION1                   ;
+  and #%00000001                   ; 
+  bne @else                        ;
+    jsr loadRightAtack             ;If islooking to the left
+    jmp endLoadinAirFrame          ;
+  @else:                           ;
+    jsr loadLeftAtack              ;If islooking to the right
+endLoadAtack:                 ;
+  rts                              ;
+                                   ;
+loadLeftAtack:                     ;
+  ldx #$00                         ;
+  ldy #$00                         ;
+  @loop:                           ;
+    lda atackLeft, x               ;
+    sta $0225, y                   ;
+    iny                            ;
+    inx                            ;
+    lda atackLeft, x               ;
+    sta $0225, y                   ;
+    inx                            ;
+    iny                            ;
+    iny                            ;
+    iny                            ;
+    cpx #$04                       ;
+    bne @loop                      ;
+  rts                              ;
+                                   ;
+loadRightAtack:                    ;
+  ldx #$00                         ;
+  ldy #$00                         ;
+  @loop:                           ;
+    lda atackRight, x              ;
+    sta $0225, y                   ;
+    iny                            ;
+    inx                            ;
+    lda atackRight, x              ;
+    sta $0225, y                   ;
+    inx                            ;
+    iny                            ;
+    iny                            ;
+    iny                            ;
+    cpx #$04                       ;
+    bne @loop                      ;
+  rts                              ;
+;----------------------------------;
 
 ;----------------------------------;
 loadinAirFrame:                    ;
@@ -1509,6 +1693,15 @@ inAirLeft:
   .byte $0B, $40
   .byte $1A, $40
   .byte $1B, $40
+
+
+atackLeft:
+  .byte $31, $40
+  .byte $32, $40
+
+atackRight:
+  .byte $31, $04
+  .byte $32, $04 
 
 
 
