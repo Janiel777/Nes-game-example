@@ -35,7 +35,10 @@ initializePlayer:                                                               
     sta $D, X ; PROJECTILE_DIRECTION                                                                  ;
     sta $E, X ; TAKE_DAMAGE                                                                           ;
     sta $F, X ; BLINK_PLAYER_COUNTER                                                                  ;
-    sta $10, X ; BLINK_PLAYER_TIMER                                                                   ;
+    sta $10, X ; BLINK_PLAYER_TIMER 
+    
+    lda #$3                                                                 
+    sta $11, X ; Life points                                                                   
                                                                                                       ;
     ;#$40 para hacer el mirror del tile y el or para encender los bits de la paleta del parametro     ;
     lda #$40                                                                                          ;
@@ -533,6 +536,63 @@ checkCollide:               ;
   rts                       ;
 ;---------------------------;
 
+;Parametro1 en registro x: coordenada x de una entidad
+;Parametro2 en registro y: coordenada y de una entidad
+tileIndex:
+    txa
+    lsr
+    lsr
+    lsr
+    sta TEMP
+    tya 
+    lsr
+    lsr
+    lsr
+    asl
+    asl
+    asl
+    asl
+    asl
+    clc
+    adc TEMP
+rts
+
+; Parametro1 en el registro PARAMETRO1: direccion de la ubicacion de la informacion del jugador al que atacaron.
+; Parametro2 en el registro PARAMETRO2: direccion de la ubicacion de los sprites del jugador que disparo el proyectil.
+ProjectileCollide:
+    ; lda #$0
+    ; sta $00c8
+
+    ldx PARAMETRO1
+    lda $0, x ;Player x
+    sta TEMP
+    lda $1, x ; Player y
+    tay
+    ldx TEMP
+    jsr tileIndex
+    sta RETURN_VALUE1
+
+    ldx PARAMETRO2
+    lda $0213, x ;Projectile x
+    sta TEMP
+    lda $0210, x ;Projectile y
+    tay
+    ldx TEMP
+    jsr tileIndex
+    sta RETURN_VALUE2
+
+    cmp RETURN_VALUE1
+    bne @continue1
+        ldx PARAMETRO1
+        lda #$1
+        sta $E, x ;take damage
+
+    @continue1:
+
+
+endProjectileCollide:
+    rts
+
 
 
 ; Parametro1 en el registro PARAMETRO1: direccion de la ubicacion de la informacion del jugador.
@@ -666,6 +726,7 @@ blinkPlayer:                                      ;
         sta $E, x ;TAKE_DAMEGE                    ;
         sta $F, x ;BLINK_PLAYER_COUNTER           ;
         sta $10, x ;BLINK_PLAYER_TIMER            ;
+        dec $11, x ;life points
                                                   ;
 endBlinkPlayer:                                   ;
 rts                                               ;

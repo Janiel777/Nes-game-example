@@ -226,6 +226,34 @@ nmi:
   jsr checkAButtonPressed2
   jsr blinkPlayer
   jsr projectileManager
+
+
+  ldx #PLAYER2_INFORMATION
+  lda $B, x ;PROJECTILE
+  cmp #$1
+  bne @con1
+
+  lda #PLAYER1_INFORMATION
+  sta PARAMETRO1
+  lda #PLAYER2_SPRITES
+  sta PARAMETRO2
+  jsr ProjectileCollide
+
+  @con1:
+
+
+  ldx #PLAYER1_INFORMATION
+  lda $B, x ;PROJECTILE
+  cmp #$1
+  bne @con2
+
+  lda #PLAYER2_INFORMATION
+  sta PARAMETRO1
+  lda #PLAYER1_SPRITES
+  sta PARAMETRO2
+  jsr ProjectileCollide
+
+  @con2:
   
   ;-----------;
   ldx #$02    ;
