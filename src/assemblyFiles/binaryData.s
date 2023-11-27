@@ -10,7 +10,7 @@ defaultPalettes:
   .byte $0f, $38, $17, $27; 04              
   .byte $0f, $30, $17, $27; 05   foreground         
   .byte $0f, $3c, $37, $09; 06              
-  .byte $0f, $2d, $30, $15; 07              
+  .byte $0f, $3c, $37, $09; 07              
 
 attributeTable0:
   ; 7654 3210

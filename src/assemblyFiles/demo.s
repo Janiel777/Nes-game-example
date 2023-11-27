@@ -65,21 +65,17 @@ sta PARAMETRO1                                                                  
 lda #$10                                                                          ;
 sta PARAMETRO2                                                                    ;
 lda #$10                                                                          ;
-sta PARAMETRO3          
-lda #$1
-sta PARAMETRO4                                                          
+sta PARAMETRO3                                                                    ;
 jsr initializePlayer                                                              ;
                                                                                   ;
 ldx #PLAYER2_INFORMATION                                                          ;
 ldy #PLAYER2_SPRITES                                                              ;
 lda #$01                                                                          ;
 sta PARAMETRO1                                                                    ;
-lda #$E0                                                                          ;
+lda #$20                                                                          ;
 sta PARAMETRO2                                                                    ;
-lda #$10                                                                          ;
-sta PARAMETRO3    
-lda #$2
-sta PARAMETRO4                                                                  
+lda #$20                                                                          ;
+sta PARAMETRO3                                                                    ;
 jsr initializePlayer                                                              ;
                                                                                   ;
 jsr load_default_palettes                                                         ;
@@ -155,36 +151,15 @@ nmi:
   PHA   ;       
   ;-----;
 
-  ldx #PLAYER1_INFORMATION
-  lda $11, X ;life points
-  cmp #$0
-  bne @notFinished1
-    lda #$2
-    sta PARAMETRO1
-    jsr drawWinHud
-    lda #PLAYER1_SPRITES
-    sta PARAMETRO1
-    jsr loadDeathPlayer
-    jmp endNMI
-  @notFinished1:
-
-
-  ldx #PLAYER2_INFORMATION
-  lda $11, X ;life points
-  cmp #$0
-  bne @notFinished2
-    lda #$1
-    sta PARAMETRO1
-    jsr drawWinHud
-    lda #PLAYER2_SPRITES
-    sta PARAMETRO1
-    jsr loadDeathPlayer
-    jmp endNMI
-  @notFinished2:
-  ;----------------------------------------
   lda #PLAYER1_INFORMATION
   sta PARAMETRO1
   lda #PLAYER1_SPRITES
+  sta PARAMETRO2
+  jsr calculatePlayerCoordinates
+
+  lda #PLAYER2_INFORMATION
+  sta PARAMETRO1
+  lda #PLAYER2_SPRITES
   sta PARAMETRO2
   jsr calculatePlayerCoordinates
   
@@ -199,6 +174,18 @@ nmi:
   jsr checkBButtonPressed1
   
   jsr checkNotMovingPressed1
+
+  jsr readController2
+  jsr checkLeftButtonPressed2
+  jsr checkRightButtonPressed2
+  jsr checkUpButtonPressed2
+  jsr checkDownButtonPressed2
+  jsr checkSelectButtonPressed2
+  jsr checkStartButtonPressed2
+  jsr checkBButtonPressed2
+
+  jsr checkNotMovingPressed2
+
 
   lda #PLAYER1_INFORMATION
   sta PARAMETRO1
@@ -221,51 +208,6 @@ nmi:
 
 
 
-  ldx #PLAYER1_INFORMATION
-  lda $B, x ;PROJECTILE
-  cmp #$1
-  bne @con2
-
-  lda #PLAYER2_INFORMATION
-  sta PARAMETRO1
-  lda #PLAYER1_SPRITES
-  sta PARAMETRO2
-  jsr ProjectileCollide
-
-  @con2:
-
-
-  lda #PLAYER1_INFORMATION
-  sta PARAMETRO1
-  lda #PLAYER1_SPRITES
-  sta PARAMETRO2
-  lda #PLAYER1_HUD_X
-  sta PARAMETRO3
-  lda #PLAYER1_HUD_Y
-  sta PARAMETRO4
-  ldx #$1
-  jsr DrawPlayerLifePoints
-
-  ;------------------------------------------
-
-
-  lda #PLAYER2_INFORMATION
-  sta PARAMETRO1
-  lda #PLAYER2_SPRITES
-  sta PARAMETRO2
-  jsr calculatePlayerCoordinates
-  
-  jsr readController2
-  jsr checkLeftButtonPressed2
-  jsr checkRightButtonPressed2
-  jsr checkUpButtonPressed2
-  jsr checkDownButtonPressed2
-  jsr checkSelectButtonPressed2
-  jsr checkStartButtonPressed2
-  jsr checkBButtonPressed2
-
-  jsr checkNotMovingPressed2
-
   lda #PLAYER2_INFORMATION
   sta PARAMETRO1
   lda #PLAYER2_SPRITES
@@ -284,32 +226,6 @@ nmi:
   jsr checkAButtonPressed2
   jsr blinkPlayer
   jsr projectileManager
-
-  ldx #PLAYER2_INFORMATION
-  lda $B, x ;PROJECTILE
-  cmp #$1
-  bne @con1
-
-  lda #PLAYER1_INFORMATION
-  sta PARAMETRO1
-  lda #PLAYER2_SPRITES
-  sta PARAMETRO2
-  jsr ProjectileCollide
-
-  @con1:
-
-  lda #PLAYER2_INFORMATION
-  sta PARAMETRO1
-  lda #PLAYER2_SPRITES
-  sta PARAMETRO2
-  lda #PLAYER2_HUD_X
-  sta PARAMETRO3
-  lda #PLAYER2_HUD_Y
-  sta PARAMETRO4
-  ldx #$2
-  jsr DrawPlayerLifePoints
-
-  endNMI:
   
   ;-----------;
   ldx #$02    ;
@@ -340,4 +256,3 @@ nmi:
                                                                       
 .segment "CHARS"                            
 .incbin "Project2_background_sprites.chr"                         
-
