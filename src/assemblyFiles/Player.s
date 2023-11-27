@@ -35,7 +35,10 @@ initializePlayer:                                                               
     sta $D, X ; PROJECTILE_DIRECTION                                                                  ;
     sta $E, X ; TAKE_DAMAGE                                                                           ;
     sta $F, X ; BLINK_PLAYER_COUNTER                                                                  ;
-    sta $10, X ; BLINK_PLAYER_TIMER                                                                   ;
+    sta $10, X ; BLINK_PLAYER_TIMER                                                                   ;          
+                                                                                                      ;
+    lda #$3                                                                                           ;      
+    sta $11, X ; Life points                                                                          ;  
                                                                                                       ;
     ;#$40 para hacer el mirror del tile y el or para encender los bits de la paleta del parametro     ;
     lda #$40                                                                                          ;
@@ -89,6 +92,42 @@ initializePlayer:                                                               
     sta $0200+$E, Y                                                                                   ;
     lda PARAMETRO2      ;X                                                                            ;
     sta $0200+$F, Y                                                                                   ;
+                                                                                                      ;
+    ;P                                                                                                ;      
+    lda PARAMETRO3      ;Y                                                                            ;
+    clc                                                                                               ;
+    sbc #$8                                                                                           ;
+    sta $0200+$28, Y                                                                                  ;  
+    lda #$35            ;Tile index                                                                   ;  
+    sta $0200+$29, Y                                                                                  ;          
+    lda #$7                 ;Attribute                                                                ;           
+    sta $0200+$2A, Y                                                                                  ;          
+    lda PARAMETRO2      ;X                                                                            ;
+    sta $0200+$2B, Y                                                                                  ;      
+                                                                                                      ;          
+    ;1 o 2                                                                                            ;          
+    lda PARAMETRO3      ;Y                                                                            ; 
+    clc                                                                                               ;
+    sbc #$8                                                                                           ;
+    sta $0200+$2C, Y                                                                                  ;          
+    lda PARAMETRO4                                                                                    ;         
+    cmp #$1                                                                                           ;      
+    bne @if                                                                                           ;                    
+        lda #$36                                                                                      ;         
+        jmp @continue                                                                                 ;       
+    @if:                                                                                              ;          
+        lda #$37                                                                                      ;      
+    @continue:                                                                                        ;                                                  
+    sta $0200+$2D, Y    ;Tile index                                                                   ;               
+    lda #$7                    ;Attribute                                                             ;              
+    sta $0200+$2E, Y                                                                                  ;
+    lda PARAMETRO2      ;X                                                                            ; 
+    clc                                                                                               ;
+    adc #$8                                                                                           ;
+    sta $0200+$2F, Y                                                                                  ;
+                                                                                                      ;
+                                                                                                      ;
+                                                                                                      ;
 rts                                                                                                   ;
 ;-----------------------------------------------------------------------------------------------------;
 
@@ -256,6 +295,9 @@ moveToLeftPlayer:                          ;
     dec $020B, x                           ;
     dec $020F, x                           ;
                                            ;
+    dec $022B, x                           ;
+    dec $022F, x                           ;
+                                           ;
     jsr calculatePlayerCoordinates         ;
                                            ;
     jsr setCoordinatesTopLeft              ;
@@ -266,6 +308,9 @@ moveToLeftPlayer:                          ;
         inc $0207, x                       ;
         inc $020B, x                       ;
         inc $020F, x                       ;
+                                           ;
+        inc $022B, x                       ;
+        inc $022F, x                       ;
         jsr calculatePlayerCoordinates     ;
     @continue1:                            ;
                                            ;
@@ -277,6 +322,9 @@ moveToLeftPlayer:                          ;
         inc $0207, x                       ;
         inc $020B, x                       ;
         inc $020F, x                       ;
+                                           ;
+        inc $022B, x                       ;
+        inc $022F, x                       ;
         jsr calculatePlayerCoordinates     ;
     @continue2:                            ;
                                            ;
@@ -298,6 +346,9 @@ moveToRightPlayer:                         ;
     inc $0207, x                           ;
     inc $020B, x                           ;
     inc $020F, x                           ;
+                                           ;
+    inc $022B, x                           ;
+    inc $022F, x                           ;
     jsr calculatePlayerCoordinates         ;
                                            ;
     jsr setCoordinatesTopLeft              ;
@@ -308,6 +359,9 @@ moveToRightPlayer:                         ;
         dec $0207, x                       ;
         dec $020B, x                       ;
         dec $020F, x                       ;
+                                           ;
+        dec $022B, x                       ;
+        dec $022F, x                       ;
         jsr calculatePlayerCoordinates     ;
     @continue1:                            ;
                                            ;
@@ -319,6 +373,9 @@ moveToRightPlayer:                         ;
         dec $0207, x                       ;
         dec $020B, x                       ;
         dec $020F, x                       ;
+                                           ;
+        dec $022B, x                       ;
+        dec $022F, x                       ;
         jsr calculatePlayerCoordinates     ;
     @continue2:                            ;
                                            ;
@@ -342,6 +399,9 @@ moveToDownPlayer:                          ;
     inc $0204, x                           ;
     inc $0208, x                           ;
     inc $020C, x                           ;
+                                           ;
+    inc $0228, X                           ;
+    inc $022C, X                           ;
     jsr calculatePlayerCoordinates         ;
                                            ;
     jsr setCoordinatesTopLeft              ;
@@ -352,6 +412,9 @@ moveToDownPlayer:                          ;
         dec $0204, x                       ;
         dec $0208, x                       ;
         dec $020C, x                       ;
+                                           ;
+        dec $0228, X                       ;
+        dec $022C, X                       ;
         jsr calculatePlayerCoordinates     ;
     @continue1:                            ;
                                            ;
@@ -363,6 +426,9 @@ moveToDownPlayer:                          ;
         dec $0204, x                       ;
         dec $0208, x                       ;
         dec $020C, x                       ;
+                                           ;
+        dec $0228, X                       ;
+        dec $022C, X                       ;
         jsr calculatePlayerCoordinates     ;
     @continue2:                            ;
                                            ;
@@ -385,6 +451,9 @@ moveToUpPlayer:                            ;
     dec $0204, x                           ;
     dec $0208, x                           ;
     dec $020C, x                           ;
+                                           ;
+    dec $0228, X                           ;
+    dec $022C, X                           ;
     jsr calculatePlayerCoordinates         ;
                                            ;
     jsr setCoordinatesTopLeft              ;
@@ -395,6 +464,9 @@ moveToUpPlayer:                            ;
         inc $0204, x                       ;
         inc $0208, x                       ;
         inc $020C, x                       ;
+                                           ;
+        inc $0228, X                       ;
+        inc $022C, X                       ;
         jsr calculatePlayerCoordinates     ;
     @continue1:                            ;
                                            ;
@@ -406,6 +478,9 @@ moveToUpPlayer:                            ;
         inc $0204, x                       ;
         inc $0208, x                       ;
         inc $020C, x                       ;
+                                           ;
+        inc $0228, X                       ;
+        inc $022C, X                       ;
         jsr calculatePlayerCoordinates     ;
     @continue2:                            ;
                                            ;
@@ -532,6 +607,63 @@ checkCollide:               ;
   and bitMaskTable, x       ;
   rts                       ;
 ;---------------------------;
+
+;Parametro1 en registro x: coordenada x de una entidad
+;Parametro2 en registro y: coordenada y de una entidad
+tileIndex:
+    txa
+    lsr
+    lsr
+    lsr
+    sta TEMP
+    tya 
+    lsr
+    lsr
+    lsr
+    asl
+    asl
+    asl
+    asl
+    asl
+    clc
+    adc TEMP
+rts
+
+; Parametro1 en el registro PARAMETRO1: direccion de la ubicacion de la informacion del jugador al que atacaron.
+; Parametro2 en el registro PARAMETRO2: direccion de la ubicacion de los sprites del jugador que disparo el proyectil.
+ProjectileCollide:
+    ; lda #$0
+    ; sta $00c8
+
+    ldx PARAMETRO1
+    lda $0, x ;Player x
+    sta TEMP
+    lda $1, x ; Player y
+    tay
+    ldx TEMP
+    jsr tileIndex
+    sta RETURN_VALUE1
+
+    ldx PARAMETRO2
+    lda $0213, x ;Projectile x
+    sta TEMP
+    lda $0210, x ;Projectile y
+    tay
+    ldx TEMP
+    jsr tileIndex
+    sta RETURN_VALUE2
+
+    cmp RETURN_VALUE1
+    bne @continue1
+        ldx PARAMETRO1
+        lda #$1
+        sta $E, x ;take damage
+
+    @continue1:
+
+
+endProjectileCollide:
+    rts
 
 
 
@@ -666,6 +798,7 @@ blinkPlayer:                                      ;
         sta $E, x ;TAKE_DAMEGE                    ;
         sta $F, x ;BLINK_PLAYER_COUNTER           ;
         sta $10, x ;BLINK_PLAYER_TIMER            ;
+        dec $11, x ;life points
                                                   ;
 endBlinkPlayer:                                   ;
 rts                                               ;
@@ -1229,6 +1362,53 @@ loadRightFrame4:                                    ;
 
 
 
+
+; Parametro 1 en el registro PARAMETRO1: direccion de los sprites del jugador.
+;--------------------------;
+loadDeathPlayer:           ;
+    ldx PARAMETRO1         ;
+                           ;
+    lda #$0                ;
+    sta $0201, X           ;
+                           ;
+    lda #$0                ;
+    sta $0205, X           ;
+                           ;
+    lda $020F, X           ;
+    cmp $020B, X           ;
+    bpl @if1               ;
+        lda #$1E           ;
+        jmp @continue1     ;
+    @if1:                  ;
+    lda #$1D               ;
+    @continue1:            ;
+                           ;
+    sta $0209, X           ;
+    lda $020A, x           ;
+    and #%00011111         ;
+    sta $020A, X           ;
+                           ;
+                           ;
+    lda $020F, X           ;
+    cmp $020B, X           ;
+    bpl @if2               ;
+        lda #$1D           ;
+        jmp @continue2     ;
+    @if2:                  ;
+    lda #$1E               ;
+    @continue2:            ;
+                           ;
+    sta $020D, X           ;
+    lda $020E, x           ;
+    and #%00011111         ;
+    sta $020E, X           ;
+                           ;
+rts                        ;
+;--------------------------;
+
+
+
+
 ; Fixes a problem that occurs when reversing the tiles
 ; vertically when making the character change direction.
 ; This problem arises since we must remember that the
@@ -1266,3 +1446,217 @@ endCheckAndFixMirroring:                 ;
 ;----------------------------------------;                         
 
             
+
+
+
+
+; Parametro 1 en el registro PARAMETRO1: ubicacion de la informacion del jugador.
+; Parametro 2 en el registro PARAMETRO2: ubicacion del los sprites del jugador.
+; Parametro 3 en el registro PARAMETRO3: Coordenada en x en la que se va a dibujar.
+; Parametro 4 en el registro PARAMETRO4: Coordenada en y en la que se va a dibujar.
+;-----------------------------------;
+DrawPlayerLifePoints:               ;
+    ldy PARAMETRO2                  ;
+    H3:                             ;
+        lda #$0                     ;
+        sta $0214, y ;Y             ;
+        lda #$0                     ;
+        sta $0215, y ;tile          ;
+        lda #$0                     ;
+        sta $0216, y ;attr          ;
+        lda #$0                     ;
+        sta $0217, y ; x            ;
+    H2:                             ;
+        lda #$0                     ;
+        sta $0218, y ;Y             ;
+        lda #$0                     ;
+        sta $0219, y ;tile          ;
+        lda #$0                     ;
+        sta $021A, y ;attr          ;
+        lda #$0                     ;
+        sta $021B, y ; x            ;
+    H1:                             ;
+        lda #$0                     ;
+        sta $021C, y ;Y             ;
+        lda #$0                     ;
+        sta $021D, y ;tile          ;
+        lda #$0                     ;
+        sta $021E, y ;attr          ;
+        lda #$0                     ;
+        sta $021F, y ; x            ;
+                                    ;
+    P:                              ;
+        lda PARAMETRO4              ;
+        clc                         ;
+        adc #$8                     ;
+        sta $0220, y ;Y             ;
+        lda #$35                    ;
+        sta $0221, y ;tile          ;
+        lda #$7                     ;
+        sta $0222, y ;attr          ;
+        lda PARAMETRO3              ;
+        clc                         ;
+        adc #$4                     ;
+        sta $0223, y ; x            ;
+                                    ;
+    identifier:                     ;
+        lda PARAMETRO4              ;
+        clc                         ;
+        adc #$8                     ;
+        sta $0224, y ;Y             ;
+                                    ;
+        txa                         ;
+        cmp #$1                     ;
+        bne @if                     ;
+            lda #$36                ;
+            jmp @continue           ;
+        @if:                        ;
+        lda #$37                    ;
+        @continue:                  ;
+        sta $0225, y ;tile          ;
+        lda #$7                     ;
+        sta $0226, y ;attr          ;
+        lda PARAMETRO3              ;
+        clc                         ;
+        adc #$C                     ;
+        sta $0227, y ; x            ;
+                                    ;
+    lda PARAMETRO3                  ;
+    clc                             ;
+    adc #$10                        ;
+    sta TEMP                        ;
+                                    ;
+    ldx PARAMETRO1                  ;
+    lda $11, x ;life points         ;
+                                    ;
+    ldx TEMP                        ;
+    ldy PARAMETRO2                  ;
+                                    ;
+    cmp #$3                         ;
+    beq Heart3                      ;
+    cmp #$2                         ;
+    beq Heart2                      ;
+    cmp #$1                         ;
+    beq Heart1                      ;
+    jmp endDrawPlayerLifePoints     ;
+                                    ;
+                                    ;
+    Heart3:                         ;
+        lda PARAMETRO4              ;
+        sta $0214, y ;Y             ;
+                                    ;
+        lda #$34                    ;
+        sta $0215, y ;tile          ;
+                                    ;
+        lda #$07                    ;
+        sta $0216, y ;attr          ;
+                                    ;
+        txa                         ;
+        sta $0217, y ; x            ;
+        clc                         ;
+        sbc #$8                     ;
+        tax                         ;
+                                    ;
+    Heart2:                         ;
+        lda PARAMETRO4              ;
+        sta $0218, y ;Y             ;
+                                    ;
+        lda #$34                    ;
+        sta $0219, y ;tile          ;
+                                    ;
+        lda #$07                    ;
+        sta $021A, y ;attr          ;
+                                    ;
+        txa                         ;
+        sta $021B, y ; x            ;
+        clc                         ;
+        sbc #$8                     ;
+        tax                         ;
+                                    ;
+    Heart1:                         ;
+        lda PARAMETRO4              ;
+        sta $021C, y ;Y             ;
+                                    ;
+        lda #$34                    ;
+        sta $021D, y ;tile          ;
+                                    ;
+        lda #$07                    ;
+        sta $021E, y ;attr          ;
+                                    ;
+        txa                         ;
+        sta $021F, y ; x            ;
+                                    ;
+endDrawPlayerLifePoints:            ;
+rts                                 ;
+;-----------------------------------;
+
+
+
+
+
+winHud_x = $60
+winHud_y = $30
+; Parametro 1 en registro PARAMETRO1: Numero del jugador que gano. (1 o 2)
+;---------------------------;
+drawWinHud:                 ;
+    ldx #$8                 ;
+                            ;
+    @P:                     ;
+    lda #winHud_y           ;
+    sta $0200, X            ;
+    lda #$35                ;
+    sta $0201, X            ;
+    lda #$7                 ;
+    sta $0202, X            ;
+    lda #winHud_x           ;
+    sta $0203, X            ;
+                            ;
+    @iden:                  ;
+    lda #winHud_y           ;
+    sta $0204, X            ;
+    lda PARAMETRO1          ;
+    cmp #$1                 ;
+    bne @if                 ;
+        lda #$36            ;
+        jmp @continue       ;
+    @if:                    ;
+    lda #$37                ;
+    @continue:              ;
+                            ;
+    sta $0205, X            ;
+    lda #$7                 ;
+    sta $0206, X            ;
+    lda #winHud_x + $8      ;
+    sta $0207, X            ;
+                            ;
+    @w:                     ;
+    lda #winHud_y           ;
+    sta $0208, X            ;
+    lda #$38                ;
+    sta $0209, X            ;
+    lda #$7                 ;
+    sta $020A, X            ;
+    lda #winHud_x + $18     ;
+    sta $020B, X            ;
+                            ;
+    @i:                     ;
+    lda #winHud_y           ;
+    sta $020C, X            ;
+    lda #$39                ;
+    sta $020D, X            ;
+    lda #$7                 ;
+    sta $020E, X            ;
+    lda #winHud_x + $20     ;
+    sta $020F, X            ;
+                            ;
+    @n:                     ;
+    lda #winHud_y           ;
+    sta $0210, X            ;
+    lda #$3A                ;
+    sta $0211, X            ;
+    lda #$7                 ;
+    sta $0212, X            ;
+    lda #winHud_x + $28     ;
+    sta $0213, X            ;
+rts                         ;
+;---------------------------;
