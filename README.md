@@ -5,7 +5,7 @@
 ![image](https://github.com/Janiel777/Nes-game-example/assets/95184925/011a0a3b-641a-46cb-bb2f-bb16298c82d3)
 
 
-## 2. Go to the section where the releases are
+## 2. Download the zip file of the desired game version.
 ![image](https://github.com/Janiel777/Nes-game-example/assets/95184925/54f6dbe2-f830-48a3-8e01-cd23ff019988)
 
 
