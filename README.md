@@ -4,7 +4,7 @@
 # How to download and run the game on the emulator
 
 
-## 1. Dirigirse a la seccion donde estan los releases
+## 1. Go to the section where the releases are
 ![image](https://github.com/Janiel777/Nes-game-example/assets/95184925/011a0a3b-641a-46cb-bb2f-bb16298c82d3)
 
 
