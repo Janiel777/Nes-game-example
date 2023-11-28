@@ -1,6 +1,3 @@
-# Nes-game-example
-
-
 # How to download and run the game on the emulator
 
 
